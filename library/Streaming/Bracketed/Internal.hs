@@ -10,20 +10,11 @@ import           Data.IORef
 import           Control.Monad.Catch as C
 
 
-data Finstack = Finstack !Int [IO ()]  
-
 newtype Bracketed a r = 
     Bracketed { runBracketed :: IORef Finstack -> Stream (Of a) IO r } 
     deriving Functor
 
-over :: (Stream (Of a) IO r -> Stream (Of b) IO r) -> Bracketed a r -> Bracketed b r 
-over = undefined
-
-over_ :: (Stream (Of a) IO r -> Stream (Of b) IO r') -> Bracketed a r -> Bracketed b r'
-over_ = undefined
-
-for :: Bracketed a r -> (a -> Bracketed b x) -> Bracketed b r
-for = undefined
+data Finstack = Finstack !Int [IO ()]  
 
 from :: Stream (Of x) IO r -> Bracketed x r
 from = undefined
@@ -37,3 +28,11 @@ with _ _ = undefined
 with_ :: Bracketed a r -> (forall x. Stream (Of a) IO x -> IO b) -> IO b
 with_ _ _ = undefined
 
+over :: (Stream (Of a) IO r -> Stream (Of b) IO r) -> Bracketed a r -> Bracketed b r 
+over = undefined
+
+over_ :: (Stream (Of a) IO r -> Stream (Of b) IO r') -> Bracketed a r -> Bracketed b r'
+over_ = undefined
+
+for :: Bracketed a r -> (a -> Bracketed b x) -> Bracketed b r
+for = undefined
