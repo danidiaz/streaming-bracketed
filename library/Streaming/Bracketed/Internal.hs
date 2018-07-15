@@ -33,27 +33,24 @@ bracket :: IO a -> (a -> IO ()) -> (a -> Stream (Of x) IO r) -> Bracketed x r
 bracket allocate finalize stream = Bracketed (\finref ->
     let open = do 
             a <- allocate
-            modifyIORef' finref (\(Finstack size fins) -> Finstack (succ size) (finalize a : fins))
-            pure a
-        close = do 
-            Finstack size (fin:fins) <- readIORef finref
-            writeIORef finref (Finstack (pred size) fins)
-            fin
-    in do a <- liftIO (mask (\_ -> open))
+            Finstack size0 fins <- readIORef finref
+            writeIORef finref (Finstack (succ size0) (finalize a : fins))
+            pure (size0,a)
+    in do (size0,a) <- liftIO (mask (\_ -> open))
           r <- stream a
-          liftIO (mask (\_ -> close))
+          liftIO (mask (\_ -> reset size0 finref))
           pure r)
 
 with :: Bracketed a r -> (forall x. Stream (Of a) IO x -> IO (Of b x)) -> IO (Of b r)
 with (Bracketed b) f = 
     Control.Exception.bracket (newIORef (Finstack 0 []))
-                              runFins 
+                              (reset 0) 
                               (f . b)
 
 with_ :: Bracketed a r -> (forall x. Stream (Of a) IO x -> IO b) -> IO b
 with_ (Bracketed b) f =
     Control.Exception.bracket (newIORef (Finstack 0 []))
-                              runFins 
+                              (reset 0) 
                               (f . b)
 
 over :: (Stream (Of a) IO r -> Stream (Of b) IO r) -> Bracketed a r -> Bracketed b r 
@@ -64,22 +61,19 @@ over_ transform (Bracketed b) = Bracketed (\finref ->
     let level = do
             Finstack size _ <- readIORef finref
             pure size
-        reset size0 = do
-            Finstack size fins <- readIORef finref
-            let (pending,fins') = splitAt (size-size0) fins 
-            writeIORef finref (Finstack size0 fins')
-            foldr finally (pure ()) fins 
     in do size0 <- liftIO level
           r <- transform (b finref)
-          liftIO (mask (\_ -> reset size0))
+          liftIO (mask (\_ -> reset size0 finref))
           pure r)
 
 for :: Bracketed a r -> (a -> Bracketed b x) -> Bracketed b r
 for (Bracketed b) f = 
     Bracketed (\fins -> S.for (b fins) (flip (runBracketed . f) fins))
     
-runFins :: IORef Finstack -> IO ()
-runFins finref =
-    do Finstack _ fins <- readIORef finref
-       foldr finally (pure ()) fins
+reset :: Int -> IORef Finstack -> IO ()
+reset size0 finref =
+    do Finstack size fins <- readIORef finref
+       let (pending,fins') = splitAt (size-size0) fins 
+       writeIORef finref (Finstack size0 fins')
+       foldr finally (pure ()) fins 
 
