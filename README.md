@@ -13,6 +13,8 @@ By being careful about how we lift operations to work on `Bracketed` streams,
 we can ensure that finalizers are promptly called even with operations like
 `take`.
 
+`Bracketed` streams are ultimately consumed by using a continuation.
+
 ## Differences with resourcet
 
 - Only works on `Stream`s from streaming.
