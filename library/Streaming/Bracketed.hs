@@ -1,3 +1,4 @@
+-- | A resource management decorator for `Stream`s.
 module Streaming.Bracketed (
       from
     , bracket
