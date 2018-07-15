@@ -87,5 +87,5 @@ reset size0 finref =
     do Finstack size fins <- readIORef finref
        let (pending,fins') = splitAt (size-size0) fins 
        writeIORef finref (Finstack size0 fins')
-       foldr finally (pure ()) fins 
+       foldr finally (pure ()) pending 
 

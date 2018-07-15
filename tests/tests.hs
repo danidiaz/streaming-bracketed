@@ -9,6 +9,7 @@ import Test.Tasty
 import Test.Tasty.HUnit (testCase,Assertion,assertEqual,assertBool,assertFailure)
 
 import Data.IORef
+import Control.Monad
 import Control.Exception
 
 import Streaming
@@ -27,6 +28,8 @@ tests =
     ,   testCase "over_" testOver_
     ,   testCase "exception" testException
     ,   testCase "for" testFor
+    ,   testCase "forException" testForException
+    ,   testCase "forTake" testForTake
     ]
 
 testBracket :: Assertion
@@ -85,12 +88,41 @@ testFor =
     do ref <- newIORef ""
        let b = R.bracket (modifyIORef' ref ('x':)) 
                          (\_ -> modifyIORef' ref ('y':))
-                         (\_ -> S.each "abc") 
+                         (\_ -> S.each "ab") 
            f _ = R.bracket (modifyIORef' ref ('u':)) 
                          (\_ -> modifyIORef' ref ('v':))
                          (\_ -> S.each "ij") 
        () :> () <- R.with (R.for b f) (\stream ->
            S.foldM (\() c -> modifyIORef' ref (c:)) (pure ()) pure stream)
        res <- reverse <$> readIORef ref
-       assertEqual "stream results" "" res
+       assertEqual "stream results" "xuijvuijvy" res
+
+testForException :: Assertion
+testForException = 
+    do ref <- newIORef ""
+       let b = R.bracket (modifyIORef' ref ('x':)) 
+                         (\_ -> modifyIORef' ref ('y':))
+                         (\_ -> S.each "ab") 
+           f _ = R.bracket (modifyIORef' ref ('u':)) 
+                         (\_ -> modifyIORef' ref ('v':))
+                         (\_ -> S.yield 'i' *> liftIO (fail "oops")) 
+       _ :: Either IOException (Of () ()) <- try (R.with (R.for b f) (\stream ->
+           S.foldM (\() c -> modifyIORef' ref (c:)) (pure ()) pure stream))
+       res <- reverse <$> readIORef ref
+       assertEqual "stream results" "xuivy" res
+
+testForTake :: Assertion
+testForTake = 
+    do ref <- newIORef ""
+       let b = R.bracket (modifyIORef' ref ('x':)) 
+                         (\_ -> modifyIORef' ref ('y':))
+                         (\_ -> S.each "ab") 
+           f _ = R.bracket (modifyIORef' ref ('u':)) 
+                         (\_ -> modifyIORef' ref ('v':))
+                         (\_ -> S.each "ij") 
+       () :> () <- R.with (R.over_ (S.take 3) (forever (R.for b f))) (\stream ->
+           S.foldM (\() c -> modifyIORef' ref (c:)) (pure ()) pure stream)
+       res <- reverse <$> readIORef ref
+       assertEqual "stream results" "xuijvuivy" res
+
 
