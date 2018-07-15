@@ -26,6 +26,7 @@ tests =
     ,   testCase "over" testOver
     ,   testCase "over_" testOver_
     ,   testCase "exception" testException
+    ,   testCase "for" testFor
     ]
 
 testBracket :: Assertion
@@ -79,4 +80,17 @@ testException =
        res <- reverse <$> readIORef ref
        assertEqual "stream results" "xaby" res
 
+testFor :: Assertion
+testFor = 
+    do ref <- newIORef ""
+       let b = R.bracket (modifyIORef' ref ('x':)) 
+                         (\_ -> modifyIORef' ref ('y':))
+                         (\_ -> S.each "abc") 
+           f _ = R.bracket (modifyIORef' ref ('u':)) 
+                         (\_ -> modifyIORef' ref ('v':))
+                         (\_ -> S.each "ij") 
+       () :> () <- R.with (R.for b f) (\stream ->
+           S.foldM (\() c -> modifyIORef' ref (c:)) (pure ()) pure stream)
+       res <- reverse <$> readIORef ref
+       assertEqual "stream results" "" res
 
