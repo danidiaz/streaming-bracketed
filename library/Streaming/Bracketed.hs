@@ -1,6 +1,7 @@
 -- | A resource management decorator for `Stream`s.
 module Streaming.Bracketed (
-      from
+      Bracketed
+    , from
     , bracket
     , with
     , with_
