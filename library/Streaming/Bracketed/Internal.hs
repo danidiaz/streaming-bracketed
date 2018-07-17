@@ -13,9 +13,10 @@ newtype Bracketed a r =
     Bracketed { runBracketed :: IORef Finstack -> Stream (Of a) IO r } 
     deriving Functor
 
+-- | `first` maps over the yielded elements.
 instance Bifunctor Bracketed where
     first f (Bracketed b) = Bracketed (S.map f . b)  
-    second = fmap
+    second = fmap 
 
 instance Applicative (Bracketed a) where
     pure = Bracketed . const . pure
@@ -29,12 +30,16 @@ instance Monad (Bracketed a) where
            let Bracketed b' = f r 
            b' finref)
 
+-- | A stack of finalizers, accompanied by its length.
+--
+--   Finalizers at the head of the list correspond to deeper levels of nesting.
 data Finstack = Finstack !Int [IO ()]  
 
 -- | Lift a `Stream` to a `Bracketed`.
 from :: Stream (Of x) IO r -> Bracketed x r
 from stream = Bracketed (const stream)
 
+-- | Lift a `Stream` that requires resource allocation to a `Bracketed`.
 bracket :: IO a -> (a -> IO ()) -> (a -> Stream (Of x) IO r) -> Bracketed x r
 bracket allocate finalize stream = Bracketed (\finref ->
     let open = do 
@@ -57,8 +62,8 @@ with (Bracketed b) f =
 -- | Consume a `Bracketed` stream, possibly wihout exhausting it.
 --   
 --   Finalizers lying in unconsumed parts of the stream will not be executed
---   until the callback returns, so not tarry too long if you want prompt
---   finalization.
+--   until the callback returns, so better not tarry too long if you want
+--   prompt finalization.
 with_ :: Bracketed a r -> (Stream (Of a) IO r -> IO b) -> IO b
 with_ (Bracketed b) f =
     Control.Exception.bracket (newIORef (Finstack 0 []))
@@ -81,12 +86,12 @@ over_ transform (Bracketed b) = Bracketed (\finref ->
           liftIO (mask (\_ -> reset size0 finref))
           pure r)
 
--- | `for` replaces each element of a stream with an associated stream. 
+-- | Replaces each element of a stream with an associated stream. 
 for :: Bracketed a r -> (a -> Bracketed b x) -> Bracketed b r
 for (Bracketed b) f = 
     Bracketed (\fins -> S.for (b fins) (flip (runBracketed . f) fins))
     
--- | Execute all finalizers that lie above a certain level.
+-- | Executes all finalizers that lie above a certain level.
 reset :: Int -> IORef Finstack -> IO ()
 reset size0 finref =
     do Finstack size fins <- readIORef finref
