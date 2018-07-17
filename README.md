@@ -15,7 +15,7 @@ we can ensure that finalizers are promptly called even with operations like
 
 `Bracketed` streams are ultimately consumed by using a continuation.
 
-## Differences with resourcet
+## Differences with ResourceT
 
 - Only works on `Stream`s from streaming.
 
@@ -31,7 +31,7 @@ we can ensure that finalizers are promptly called even with operations like
 - Lifting functions like `splitAt` might cause problems if we try to use the
   rest of the stream.
 
-## motivation
+## Motivation
 
 From the
 [CHANGELOG](http://hackage.haskell.org/package/streaming-0.2.1.0/changelog) of
@@ -43,6 +43,7 @@ the [streaming](http://hackage.haskell.org/package/streaming) package:
 > from running).
 
 [One Github issue](https://github.com/haskell-streaming/streaming/issues/52).
+
 [Another one](https://github.com/haskell-streaming/streaming-with/issues/2).
 
 [Streaming libs exercise/challenge](https://twitter.com/DiazCarrete/status/1016073374458671104):

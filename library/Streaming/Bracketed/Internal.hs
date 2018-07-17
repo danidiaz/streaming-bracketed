@@ -4,6 +4,7 @@ module Streaming.Bracketed.Internal where
 
 import           Data.IORef
 import           Control.Exception
+import           Data.Bifunctor
 
 import           Streaming
 import qualified Streaming.Prelude as S
@@ -11,6 +12,10 @@ import qualified Streaming.Prelude as S
 newtype Bracketed a r = 
     Bracketed { runBracketed :: IORef Finstack -> Stream (Of a) IO r } 
     deriving Functor
+
+instance Bifunctor Bracketed where
+    first f (Bracketed b) = Bracketed (S.map f . b)  
+    second = fmap
 
 instance Applicative (Bracketed a) where
     pure = Bracketed . const . pure
@@ -54,19 +59,19 @@ with (Bracketed b) f =
 --   Finalizers lying in unconsumed parts of the stream will not be executed
 --   until the callback returns, so not tarry too long if you want prompt
 --   finalization.
-with_ :: Bracketed a r -> (forall x. Stream (Of a) IO x -> IO b) -> IO b
+with_ :: Bracketed a r -> (Stream (Of a) IO r -> IO b) -> IO b
 with_ (Bracketed b) f =
     Control.Exception.bracket (newIORef (Finstack 0 []))
                               (reset 0) 
                               (f . b)
 
 -- | Apply to the underlying stream a transformation that preserves the return value.
-over :: (Stream (Of a) IO r -> Stream (Of b) IO r) -> Bracketed a r -> Bracketed b r 
+over :: (forall x. Stream (Of a) IO x -> Stream (Of b) IO x) -> Bracketed a r -> Bracketed b r 
 over transform (Bracketed b) = Bracketed (transform . b)
 
 -- | Apply to the underlying stream a transformation that might not preserve
 --   the return value, for example one that takes the first N elements.
-over_ :: forall a b r r'. (Stream (Of a) IO r -> Stream (Of b) IO r') -> Bracketed a r -> Bracketed b r'
+over_ :: (Stream (Of a) IO r -> Stream (Of b) IO r') -> Bracketed a r -> Bracketed b r'
 over_ transform (Bracketed b) = Bracketed (\finref ->
     let level = do
             Finstack size _ <- readIORef finref
@@ -76,12 +81,12 @@ over_ transform (Bracketed b) = Bracketed (\finref ->
           liftIO (mask (\_ -> reset size0 finref))
           pure r)
 
--- | for replaces each element of a stream with an associated stream. 
+-- | `for` replaces each element of a stream with an associated stream. 
 for :: Bracketed a r -> (a -> Bracketed b x) -> Bracketed b r
 for (Bracketed b) f = 
     Bracketed (\fins -> S.for (b fins) (flip (runBracketed . f) fins))
     
--- | Execute all finalizers that lay above a certain level.
+-- | Execute all finalizers that lie above a certain level.
 reset :: Int -> IORef Finstack -> IO ()
 reset size0 finref =
     do Finstack size fins <- readIORef finref
