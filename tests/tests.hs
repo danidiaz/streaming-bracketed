@@ -23,7 +23,7 @@ tests :: TestTree
 tests = 
     testGroup "All" 
     [
-        testCase "bracket" testBracket
+        testCase "bracketed" testBracket
     ,   testCase "over" testOver
     ,   testCase "over_" testOver_
     ,   testCase "exception" testException
@@ -35,7 +35,7 @@ tests =
 testBracket :: Assertion
 testBracket = 
     do ref <- newIORef ""
-       let b = R.bracket (modifyIORef' ref ('x':)) 
+       let b = R.bracketed (modifyIORef' ref ('x':)) 
                          (\_ -> modifyIORef' ref ('y':))
                          (\_ -> S.each "abcd") 
        () :> () <- R.with b (\stream ->
@@ -47,7 +47,7 @@ testBracket =
 testOver :: Assertion
 testOver = 
     do ref <- newIORef ""
-       let b = R.bracket (modifyIORef' ref ('x':)) 
+       let b = R.bracketed (modifyIORef' ref ('x':)) 
                          (\_ -> modifyIORef' ref ('y':))
                          (\_ -> S.each "abcd") 
            b' = R.over (\stream -> S.yield 'u' *> stream <* S.yield 'v') b
@@ -59,12 +59,12 @@ testOver =
 testOver_ :: Assertion
 testOver_ = 
     do ref <- newIORef ""
-       let b = R.bracket (modifyIORef' ref ('x':)) 
+       let b = R.bracketed (modifyIORef' ref ('x':)) 
                          (\_ -> modifyIORef' ref ('y':))
                          (\_ -> S.each "abcd") 
            b' = R.over_ (S.take 2) b
            b'' = R.over (\stream -> S.yield 'u' *> stream <* S.yield 'v') b'
-           h = R.bracket (modifyIORef' ref ('h':)) 
+           h = R.bracketed (modifyIORef' ref ('h':)) 
                          (\_ -> modifyIORef' ref ('l':))
                          (\_ -> S.each "ijk") 
        () :> () <- R.with (b'' *> h) (\stream ->
@@ -75,7 +75,7 @@ testOver_ =
 testException :: Assertion
 testException = 
     do ref <- newIORef ""
-       let b = R.bracket (modifyIORef' ref ('x':)) 
+       let b = R.bracketed (modifyIORef' ref ('x':)) 
                          (\_ -> modifyIORef' ref ('y':))
                          (\_ -> S.yield 'a' *> S.yield 'b' *> liftIO (fail "oops"))
        _ :: Either IOException (Of () ()) <- try (R.with b (\stream ->
@@ -86,10 +86,10 @@ testException =
 testFor :: Assertion
 testFor = 
     do ref <- newIORef ""
-       let b = R.bracket (modifyIORef' ref ('x':)) 
+       let b = R.bracketed (modifyIORef' ref ('x':)) 
                          (\_ -> modifyIORef' ref ('y':))
                          (\_ -> S.each "ab") 
-           f _ = R.bracket (modifyIORef' ref ('u':)) 
+           f _ = R.bracketed (modifyIORef' ref ('u':)) 
                          (\_ -> modifyIORef' ref ('v':))
                          (\_ -> S.each "ij") 
        () :> () <- R.with (R.for b f) (\stream ->
@@ -100,10 +100,10 @@ testFor =
 testForException :: Assertion
 testForException = 
     do ref <- newIORef ""
-       let b = R.bracket (modifyIORef' ref ('x':)) 
+       let b = R.bracketed (modifyIORef' ref ('x':)) 
                          (\_ -> modifyIORef' ref ('y':))
                          (\_ -> S.each "ab") 
-           f _ = R.bracket (modifyIORef' ref ('u':)) 
+           f _ = R.bracketed (modifyIORef' ref ('u':)) 
                          (\_ -> modifyIORef' ref ('v':))
                          (\_ -> S.yield 'i' *> liftIO (fail "oops")) 
        _ :: Either IOException (Of () ()) <- try (R.with (R.for b f) (\stream ->
@@ -114,10 +114,10 @@ testForException =
 testForTake :: Assertion
 testForTake = 
     do ref <- newIORef ""
-       let b = R.bracket (modifyIORef' ref ('x':)) 
+       let b = R.bracketed (modifyIORef' ref ('x':)) 
                          (\_ -> modifyIORef' ref ('y':))
                          (\_ -> S.each "ab") 
-           f _ = R.bracket (modifyIORef' ref ('u':)) 
+           f _ = R.bracketed (modifyIORef' ref ('u':)) 
                          (\_ -> modifyIORef' ref ('v':))
                          (\_ -> S.each "ij") 
        () :> () <- R.with (R.over_ (S.take 3) (forever (R.for b f))) (\stream ->

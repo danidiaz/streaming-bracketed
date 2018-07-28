@@ -35,13 +35,13 @@ instance Monad (Bracketed a) where
 --   Finalizers at the head of the list correspond to deeper levels of nesting.
 data Finstack = Finstack !Int [IO ()]  
 
--- | Lift a `Stream` to a `Bracketed`.
-from :: Stream (Of x) IO r -> Bracketed x r
-from stream = Bracketed (const stream)
+-- | Lift a `Stream` that doesn't perform allocations to a `Bracketed`.
+clear :: Stream (Of x) IO r -> Bracketed x r
+clear stream = Bracketed (const stream)
 
 -- | Lift a `Stream` that requires resource allocation to a `Bracketed`.
-bracket :: IO a -> (a -> IO ()) -> (a -> Stream (Of x) IO r) -> Bracketed x r
-bracket allocate finalize stream = Bracketed (\finref ->
+bracketed :: IO a -> (a -> IO ()) -> (a -> Stream (Of x) IO r) -> Bracketed x r
+bracketed allocate finalize stream = Bracketed (\finref ->
     let open = do 
             a <- allocate
             Finstack size0 fins <- readIORef finref

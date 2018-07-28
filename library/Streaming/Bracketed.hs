@@ -10,8 +10,8 @@ module Streaming.Bracketed (
       -- * Bracketed
       Bracketed
       -- * Lifting streams
-    , from
-    , bracket
+    , clear
+    , bracketed
       -- * Consuming bracketed streams with continuations
     , with
     , with_
