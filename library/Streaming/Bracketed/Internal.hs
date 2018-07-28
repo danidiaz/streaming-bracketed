@@ -9,6 +9,8 @@ import           Data.Bifunctor
 import           Streaming
 import qualified Streaming.Prelude as S
 
+import           System.IO
+
 newtype Bracketed a r = 
     Bracketed { runBracketed :: IORef Finstack -> Stream (Of a) IO r } 
     deriving Functor
@@ -35,7 +37,7 @@ instance Monad (Bracketed a) where
 --   Finalizers at the head of the list correspond to deeper levels of nesting.
 data Finstack = Finstack !Int [IO ()]  
 
--- | Lift a `Stream` that doesn't perform allocations to a `Bracketed`.
+-- | Lift a `Stream` that doesn't perform allocation to a `Bracketed`.
 clear :: Stream (Of x) IO r -> Bracketed x r
 clear stream = Bracketed (const stream)
 
@@ -75,7 +77,7 @@ over :: (forall x. Stream (Of a) IO x -> Stream (Of b) IO x) -> Bracketed a r ->
 over transform (Bracketed b) = Bracketed (transform . b)
 
 -- | Apply to the underlying stream a transformation that might not preserve
---   the return value, for example one that takes the first N elements.
+--   the return value.
 over_ :: (Stream (Of a) IO r -> Stream (Of b) IO r') -> Bracketed a r -> Bracketed b r'
 over_ transform (Bracketed b) = Bracketed (\finref ->
     let level = do
@@ -98,4 +100,19 @@ reset size0 finref =
        let (pending,fins') = splitAt (size-size0) fins 
        writeIORef finref (Finstack size0 fins')
        foldr finally (pure ()) pending 
+
+-- | A bracketed stream of all the lines in a text file.
+--
+--   This is adequate for simple use cases. For more advanced ones where
+--   efficiency and memory usage are important, it's better to use a packed
+--   text representation like the one provided by the @text@ package.
+linesFromFile :: TextEncoding -> NewlineMode -> FilePath -> Bracketed String () 
+linesFromFile encoding newlineMode path = 
+    bracketed (openFile path ReadMode)
+              hClose
+              (\h -> do liftIO (hSetEncoding h encoding)
+                        liftIO (hSetNewlineMode h newlineMode)
+                        S.untilRight (do eof <- hIsEOF h
+                                         if eof then Right <$> pure ()
+                                                else Left <$> hGetLine h))
 
