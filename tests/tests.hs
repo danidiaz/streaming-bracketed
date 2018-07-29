@@ -1,8 +1,10 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns #-}
 module Main where
 
 import           Data.Monoid
+import           Data.Foldable
 import           Data.List
 import           Data.List.NonEmpty             ( NonEmpty(..) )
 import qualified Data.List.NonEmpty
@@ -19,6 +21,8 @@ import           Data.IORef
 import           Control.Monad
 import           Control.Exception
     
+import           System.IO
+import           System.FilePath
 import           System.Directory
 
 import           Streaming
@@ -31,17 +35,17 @@ main :: IO ()
 main = defaultMain tests
 
 tests :: TestTree
-tests = 
-    testGroup "All" 
-    [
-        testCase "bracketed" testBracket
-    ,   testCase "over" testOver
-    ,   testCase "over_" testOver_
-    ,   testCase "exception" testException
-    ,   testCase "for" testFor
-    ,   testCase "forException" testForException
-    ,   testCase "forTake" testForTake
-    ]
+tests = testGroup
+  "All"
+  [ testCase "bracketed"    testBracket
+  , testCase "over"         testOver
+  , testCase "over_"        testOver_
+  , testCase "exception"    testException
+  , testCase "for"          testFor
+  , testCase "forException" testForException
+  , testCase "forTake"      testForTake
+  , testGroup "dir traversals" [testCase "testDirTraversal" testDirTraversal]
+  ]
 
 testBracket :: Assertion
 testBracket = 
@@ -136,13 +140,6 @@ testForTake =
        res <- reverse <$> readIORef ref
        assertEqual "stream results" "xuijvuivy" res
 
--- | Annotate each node with the list of all its ancestors. The root node will
--- be at the end of the list.
-inherit :: Tree a -> Tree (NonEmpty a)
-inherit tree = foldTree algebra tree [] where
-    algebra :: a -> [[a] -> Tree (NonEmpty a)] -> [a] -> Tree (NonEmpty a)
-    algebra a fs as = Node (a:|as) (fs <*> [a:as]) 
-
 directoryTree :: Tree (FilePath, [FilePath])
 directoryTree = Node
   ("a", ["file1", "file2"])
@@ -163,11 +160,27 @@ directoryTree = Node
     , Node ("abb", ["file18"]) []
     ]
   , Node ("ac", []) []
+  , Node ("ad", []) [Node ("ada", []) []]
   ]
 
-testTreeTraversal :: Assertion
-testTreeTraversal =  do
+createHierarchy :: Tree (FilePath, [FilePath]) -> FilePath -> IO ()
+createHierarchy = 
+        let alg (dir,filenames) downwards ((</> dir) -> base) = do
+                createDirectory base
+                let filepaths = (base </>) <$> filenames
+                for_ filepaths (\path -> withFile path WriteMode (\_ -> pure ())) 
+                for_ downwards ($ base)
+         in foldTree alg 
+
+testDirTraversal :: Assertion
+testDirTraversal =  do
+    -- http://hackage.haskell.org/package/directory-1.3.3.0/docs/System-Directory.html
+    -- http://hackage.haskell.org/package/filepath-1.4.2.1/docs/System-FilePath-Posix.html
     let baseDir = "__3hgal34_streaming_bracketed_testTreeTraversal_"
-    tmpDir <- getTemporaryDirectory 
-    undefined
+    testDir <- fmap (</> baseDir) getTemporaryDirectory 
+    do testDirExists <- doesPathExist testDir 
+       when testDirExists (removePathForcibly testDir)
+    createHierarchy  directoryTree testDir
+                    
+
      
