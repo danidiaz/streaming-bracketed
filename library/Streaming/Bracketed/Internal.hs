@@ -97,7 +97,7 @@ for (Bracketed b) f =
 reset :: Int -> IORef Finstack -> IO ()
 reset size0 finref =
     do Finstack size fins <- readIORef finref
-       let (pending,fins') = splitAt (size-size0) fins 
+       let (pending,fins') = splitAt (size - size0) fins 
        writeIORef finref (Finstack size0 fins')
        foldr finally (pure ()) pending 
 

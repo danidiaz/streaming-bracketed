@@ -1,20 +1,31 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Main where
 
-import Data.Monoid
-import Data.List
-import Test.Tasty
-import Test.Tasty.HUnit (testCase,Assertion,assertEqual,assertBool,assertFailure)
+import           Data.Monoid
+import           Data.List
+import           Data.List.NonEmpty             ( NonEmpty(..) )
+import qualified Data.List.NonEmpty
+import           Data.Tree
+import           Test.Tasty
+import           Test.Tasty.HUnit               ( testCase
+                                                , Assertion
+                                                , assertEqual
+                                                , assertBool
+                                                , assertFailure
+                                                )
 
-import Data.IORef
-import Control.Monad
-import Control.Exception
+import           Data.IORef
+import           Control.Monad
+import           Control.Exception
+    
+import           System.Directory
 
-import Streaming
-import qualified Streaming.Prelude as S
-import qualified Streaming.Bracketed as R
+import           Streaming
+import qualified Streaming.Prelude             as S
+import qualified Streaming.Bracketed           as R
+
+import qualified Data.Streaming.Filesystem     as FS -- streaming-commons
 
 main :: IO ()
 main = defaultMain tests
@@ -125,4 +136,38 @@ testForTake =
        res <- reverse <$> readIORef ref
        assertEqual "stream results" "xuijvuivy" res
 
+-- | Annotate each node with the list of all its ancestors. The root node will
+-- be at the end of the list.
+inherit :: Tree a -> Tree (NonEmpty a)
+inherit tree = foldTree algebra tree [] where
+    algebra :: a -> [[a] -> Tree (NonEmpty a)] -> [a] -> Tree (NonEmpty a)
+    algebra a fs as = Node (a:|as) (fs <*> [a:as]) 
 
+directoryTree :: Tree (FilePath, [FilePath])
+directoryTree = Node
+  ("a", ["file1", "file2"])
+  [ Node
+    ("aa", ["file3", "file4"])
+    [ Node ("aaa", ["file5"])
+           [Node ("aaaa", ["file6"]) [], Node ("aaab", ["file7", "file8"]) []]
+    ]
+  , Node
+    ("ab", ["file9", "file10"])
+    [ Node
+      ("aba", ["file11"])
+      [ Node ("abaa", ["file12"])           []
+      , Node ("abab", ["file13", "file14"]) []
+      , Node ("abac", ["file15"])           []
+      , Node ("abad", ["file16", "file17"]) []
+      ]
+    , Node ("abb", ["file18"]) []
+    ]
+  , Node ("ac", []) []
+  ]
+
+testTreeTraversal :: Assertion
+testTreeTraversal =  do
+    let baseDir = "__3hgal34_streaming_bracketed_testTreeTraversal_"
+    tmpDir <- getTemporaryDirectory 
+    undefined
+     
