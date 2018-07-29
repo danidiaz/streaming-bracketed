@@ -32,6 +32,9 @@ instance Monad (Bracketed a) where
            let Bracketed b' = f r 
            b' finref)
 
+instance MonadIO (Bracketed a) where
+    liftIO action = Bracketed (\_ -> liftIO action)
+
 -- | A stack of finalizers, accompanied by its length.
 --
 --   Finalizers at the head of the list correspond to deeper levels of nesting.
@@ -106,13 +109,17 @@ reset size0 finref =
 --   This is adequate for simple use cases. For more advanced ones where
 --   efficiency and memory usage are important, it's better to use a packed
 --   text representation like the one provided by the @text@ package.
-linesFromFile :: TextEncoding -> NewlineMode -> FilePath -> Bracketed String () 
-linesFromFile encoding newlineMode path = 
-    bracketed (openFile path ReadMode)
-              hClose
-              (\h -> do liftIO (hSetEncoding h encoding)
-                        liftIO (hSetNewlineMode h newlineMode)
-                        S.untilRight (do eof <- hIsEOF h
-                                         if eof then Right <$> pure ()
-                                                else Left <$> hGetLine h))
+linesFromFile :: TextEncoding -> NewlineMode -> FilePath -> Bracketed String ()
+linesFromFile encoding newlineMode path = bracketed
+  (openFile path ReadMode)
+  hClose
+  (\h -> do
+    liftIO (hSetEncoding h encoding)
+    liftIO (hSetNewlineMode h newlineMode)
+    S.untilRight
+      (do
+        eof <- hIsEOF h
+        if eof then Right <$> pure () else Left <$> hGetLine h
+      )
+  )
 
