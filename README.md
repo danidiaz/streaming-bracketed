@@ -1,5 +1,7 @@
 # streaming-bracketed
 
+[![Build Status](https://travis-ci.org/danidiaz/streaming-bracketed.svg?branch=master)](https://travis-ci.org/danidiaz/streaming-bracketed)
+
 ## What's this?
 
 A resource management "decorator" for the `Stream` type from
