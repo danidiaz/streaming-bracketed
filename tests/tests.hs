@@ -45,7 +45,11 @@ tests = testGroup
   , testCase "for"          testFor
   , testCase "forException" testForException
   , testCase "forTake"      testForTake
-  , testGroup "dir traversals" [testCase "testDirTraversal" testDirTraversal]
+  , testGroup
+    "file stuff"
+    [ testCase "testDirTraversal" testDirTraversal
+    , testCase "challenge"        testChallenge
+    ]
   ]
 
 testBracket :: Assertion
@@ -206,6 +210,7 @@ traverseDirectory dir = do
         _              -> pure ()
     )
 
+
 testDirTraversal :: Assertion
 testDirTraversal = do
     -- http://hackage.haskell.org/package/directory-1.3.3.0/docs/System-Directory.html
@@ -222,5 +227,34 @@ testDirTraversal = do
   assertEqual "path sets"
               (Data.Set.fromList (expectedPaths directoryTree))
               (Data.Set.fromList relative)
+
+testChallenge :: Assertion
+testChallenge = do
+    -- https://twitter.com/DiazCarrete/status/1016073374458671104
+  let baseDir = "__3hgal34_streaming_bracketed_testChallenge_"
+  testDir <- fmap (</> baseDir) getTemporaryDirectory
+  let testFile = "challenge.txt"
+      testPath = testDir </> testFile
+  do
+    testDirExists <- doesPathExist testDir
+    when testDirExists (removePathForcibly testDir)
+    createDirectory testDir
+  withFile
+    testPath
+    WriteMode
+    (\h -> do
+      hPutStrLn h "aaa"
+      hPutStrLn h "bbb"
+      hPutStrLn h "bbb"
+      hPutStrLn h "ccc"
+      hPutStrLn h "ccc"
+    )
+  ranges :> _ <- R.with
+    (R.concatRanges utf8
+                    nativeNewlineMode
+                    [(testPath, 4, 5), (testPath, 1, 3), (testPath, 0, 1)]
+    )
+    S.toList
+  assertEqual "ranges" ["ccc", "bbb", "bbb", "aaa"] ranges
 
 

@@ -22,6 +22,7 @@ module Streaming.Bracketed (
     , for 
       -- * Reading text files
     , linesFromFile
+    , concatRanges
     ) where
 
 import           Streaming

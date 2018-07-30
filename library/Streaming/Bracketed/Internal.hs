@@ -2,6 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 module Streaming.Bracketed.Internal where
 
+import           Data.Foldable
 import           Data.IORef
 import           Control.Exception
 import           Data.Bifunctor
@@ -122,4 +123,20 @@ linesFromFile encoding newlineMode path = bracketed
         if eof then Right <$> pure () else Left <$> hGetLine h
       )
   )
+
+-- | Given a list of text files and line ranges, create a stream of lines
+--   belonging to the concatenated ranges.
+concatRanges
+  :: TextEncoding
+  -> NewlineMode
+  -> [(FilePath, Int, Int)]
+  -> Bracketed String ()
+concatRanges encoding newlineMode ranges =
+  let streamRange (path, start, end) =
+        over_ (S.take (end - start)) . over (S.drop start) $ linesFromFile
+          encoding
+          newlineMode
+          path
+  in  traverse_ streamRange ranges
+
 
