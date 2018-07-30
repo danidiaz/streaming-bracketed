@@ -3,12 +3,12 @@
 module Streaming.Bracketed.Internal where
 
 import           Data.Foldable
+import           Data.Bifunctor
 import           Data.IORef
 import           Control.Exception
-import           Data.Bifunctor
 
 import           Streaming
-import qualified Streaming.Prelude as S
+import qualified Streaming.Prelude             as S
 
 import           System.IO
 
@@ -93,6 +93,8 @@ over_ transform (Bracketed b) = Bracketed (\finref ->
           pure r)
 
 -- | Replaces each element of a stream with an associated stream. 
+--
+--   Can be useful for traversing hierachical structures.
 for :: Bracketed a r -> (a -> Bracketed b x) -> Bracketed b r
 for (Bracketed b) f = 
     Bracketed (\fins -> S.for (b fins) (flip (runBracketed . f) fins))
@@ -138,5 +140,4 @@ concatRanges encoding newlineMode ranges =
           newlineMode
           path
   in  traverse_ streamRange ranges
-
 
