@@ -22,7 +22,7 @@ extra-source-files:
       ChangeLog.md
       .travis.yml
       .gitignore
-cabal-version:       >=2
+cabal-version:       2
 
 library
   exposed-modules:     
