@@ -44,6 +44,7 @@ tests = testGroup
   , testCase "exception"    testException
   , testCase "for"          testFor
   , testCase "forException" testForException
+  , testCase "forCleanupException" testForCleanupException
   , testCase "forTake"      testForTake
   , testGroup
     "file stuff"
@@ -130,6 +131,22 @@ testForException =
            S.foldM (\() c -> modifyIORef' ref (c:)) (pure ()) pure stream))
        res <- reverse <$> readIORef ref
        assertEqual "stream results" "xuivy" res
+
+
+testForCleanupException :: Assertion
+testForCleanupException = 
+    do ref <- newIORef ""
+       let b = R.bracketed (modifyIORef' ref ('x':)) 
+                         (\_ -> modifyIORef' ref ('y':))
+                         (\_ -> S.each "ab") 
+           f _ = R.bracketed (modifyIORef' ref ('u':)) 
+                         (\_ -> modifyIORef' ref ('v':) *> fail "finoops")
+                         (\_ -> S.each "ij") 
+       _ :: Either IOException (Of () ()) <- try (R.with (R.for b f) (\stream ->
+           S.foldM (\() c -> modifyIORef' ref (c:)) (pure ()) pure stream))
+       res <- reverse <$> readIORef ref
+       assertEqual "stream results" "xuijvy" res
+
 
 testForTake :: Assertion
 testForTake = 
