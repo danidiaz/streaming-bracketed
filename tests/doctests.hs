@@ -4,4 +4,4 @@ import Test.DocTest
 
 main :: IO ()
 main = doctest
-  ["library/Streaming/Bracketed.hs"]
+  ["-ilibrary","library/Streaming/Bracketed.hs"]

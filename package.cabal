@@ -35,8 +35,7 @@ test-suite doctests
         streaming       >= 0.2.0.0 && < 0.3,
         doctest         >= 0.16.0,
         directory       >= 1.3.1.0,
-        filepath        >= 1.3,
-        streaming-bracketed  
+        filepath        >= 1.3
     default-language:    
         Haskell2010
 
