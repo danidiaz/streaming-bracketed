@@ -17,16 +17,23 @@ we can ensure that finalizers are promptly called even with operations like
 
 `Bracketed` streams are ultimately consumed by using a continuation.
 
-## Differences with ResourceT
+## Differences with resourcet
 
-- Only works on `Stream`s from streaming.
+[resourcet](http://hackage.haskell.org/package/resourcet) is a widely used
+library for resource handling. It provides a monad transformer over IO that
+keeps track of registered resources and ensures proper cleanup.
 
-- It sits above the streaming monad, not below.
+The main differences with the present library are:
 
-- Less versatile: finalizer scopes are nested, unlike resourcet which allows
-  arbitrary interleavings.
+- This library only works on `Stream`s from streaming.
 
-- Smarter handling of functions like `take`.
+- `Bracketed` sits above the streaming monad, not below like `ResourceT`.
+
+- This library aims to provide smarter handling of stream functions like
+  `take`, without too much hassle.
+
+- In this library finalizer scopes are nested, unlike `ResourceT` which allows
+  arbitrary interleavings. 
 
 ## Doubts
 
