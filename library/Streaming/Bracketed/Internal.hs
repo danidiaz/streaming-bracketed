@@ -12,6 +12,25 @@ import qualified Streaming.Prelude             as S
 
 import           System.IO
 
+{- $setup
+
+>>> import           Data.Foldable
+>>> import           Control.Monad
+>>> import           System.IO
+>>> import           System.FilePath
+>>> import           System.Directory
+>>> import           Streaming
+>>> import qualified Streaming.Prelude             as S
+>>> import qualified Streaming.Bracketed           as R
+
+-}
+
+-- | A resource management decorator for the `Stream` type.
+--   
+--   @a@ is the type of yielded elements, @r@ the type of the final result.
+--
+--   It is not parameterized by a base monad because the underlying
+--   `Stream`s are always over `IO`.
 newtype Bracketed a r = 
     Bracketed { runBracketed :: IORef Finstack -> Stream (Of a) IO r } 
     deriving Functor
@@ -21,6 +40,7 @@ instance Bifunctor Bracketed where
     first f (Bracketed b) = Bracketed (S.map f . b)  
     second = fmap 
 
+-- | `*>` performs sequential composition.
 instance Applicative (Bracketed a) where
     pure = Bracketed . const . pure
     Bracketed b <*> Bracketed b' = Bracketed (\finref ->
@@ -41,11 +61,26 @@ instance MonadIO (Bracketed a) where
 --   Finalizers at the head of the list correspond to deeper levels of nesting.
 data Finstack = Finstack !Int [IO ()]  
 
--- | Lift a `Stream` that doesn't perform allocation to a `Bracketed`.
+{-| Lift a `Stream` that doesn't perform allocation to a `Bracketed`.
+ 
+>>> R.with (R.clear (S.yield True)) S.toList
+[True] :> ()
+ 
+-}
 clear :: Stream (Of x) IO r -> Bracketed x r
 clear stream = Bracketed (const stream)
 
--- | Lift a `Stream` that requires resource allocation to a `Bracketed`.
+{-| Lift a `Stream` that performs resource allocation to a `Bracketed`.
+ 
+    The first argument allocates the resource, the second is a function
+    that deallocates it.
+ 
+>>> R.with (R.bracketed (putStrLn "alloc") (\() -> putStrLn "dealloc") (\() -> S.yield True)) S.toList
+alloc
+dealloc
+[True] :> ()
+
+ -}
 bracketed :: IO a -> (a -> IO ()) -> (a -> Stream (Of x) IO r) -> Bracketed x r
 bracketed allocate finalize stream = Bracketed (\finref ->
     let open = do 
@@ -58,30 +93,50 @@ bracketed allocate finalize stream = Bracketed (\finref ->
           liftIO (mask (\_ -> reset size0 finref))
           pure r)
 
--- | Consume a `Bracketed` stream, exhausting it.
+{-| Consume a `Bracketed` stream, exhausting it.
+    
+>>> R.with (pure True) S.toList
+[] :> True
+     
+-}
 with :: Bracketed a r -> (forall x. Stream (Of a) IO x -> IO (Of b x)) -> IO (Of b r)
 with (Bracketed b) f = 
     Control.Exception.bracket (newIORef (Finstack 0 []))
                               (reset 0) 
                               (f . b)
 
--- | Consume a `Bracketed` stream, possibly wihout exhausting it.
---   
---   Finalizers lying in unconsumed parts of the stream will not be executed
---   until the callback returns, so better not tarry too long if you want
---   prompt finalization.
+{-| Consume a `Bracketed` stream, possibly wihout exhausting it.
+   
+    Finalizers lying in unconsumed parts of the stream will not be executed
+    until the callback returns, so better not tarry too long if you want
+    prompt finalization.
+
+>>> R.with_ (R.clear (S.each "abcd" *> pure True)) (S.toList . S.take 2)
+"ab" :> ()
+
+-}
 with_ :: Bracketed a r -> (Stream (Of a) IO r -> IO b) -> IO b
 with_ (Bracketed b) f =
     Control.Exception.bracket (newIORef (Finstack 0 []))
                               (reset 0) 
                               (f . b)
 
--- | Apply to the underlying stream a transformation that preserves the return value.
+{-| Apply to the underlying stream a transformation that preserves the return value, like 'S.map'.
+
+>>> R.with (S.map succ `R.over` R.clear (S.each "abcd")) S.toList
+"bcde" :> ()
+
+-}
 over :: (forall x. Stream (Of a) IO x -> Stream (Of b) IO x) -> Bracketed a r -> Bracketed b r 
 over transform (Bracketed b) = Bracketed (transform . b)
 
--- | Apply to the underlying stream a transformation that might not preserve
---   the return value.
+{-| Apply to the underlying stream a transformation that might not preserve
+    the return value, like 'S.take'.
+
+>>> R.with (S.take 2 `R.over_` R.clear (S.each "abdc")) S.toList
+"ab" :> ()
+     
+-}
 over_ :: (Stream (Of a) IO r -> Stream (Of b) IO r') -> Bracketed a r -> Bracketed b r'
 over_ transform (Bracketed b) = Bracketed (\finref ->
     let level = do

@@ -1,13 +1,13 @@
 name:                streaming-bracketed
-version:             0.1.0.0
+version:             0.1.0.1
 synopsis:            A resource management decorator for "streaming".        
 description:         This package provides a decorator for the Stream type from
-                     the "streaming" package, that lets you perform bracket-like 
+                     "streaming", that lets you perform bracket-like 
                      operations that allocate and deallocate resources used 
                      by the stream.
                      .
                      By carefully managing the operations that are lifted to
-                     the bracketed streams, we can ensure that finalizers are
+                     the decorated streams, we can ensure that finalizers are
                      promptly called even with operations like "take", which do
                      not consume the whole stream.
 license:             MIT
