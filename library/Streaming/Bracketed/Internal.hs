@@ -130,6 +130,14 @@ with_ (Bracketed b) f =
 over :: (forall x. Stream (Of a) IO x -> Stream (Of b) IO x) -> Bracketed a r -> Bracketed b r 
 over transform (Bracketed b) = Bracketed (transform . b)
 
+
+{-| Like 'over', but for transformations which return some final state or summary value besides the original return value.
+
+-}
+over' :: (forall x. Stream (Of a) IO x -> Stream (Of b) IO (Of s x)) -> Bracketed a r -> Bracketed b (Of s r)
+over' transform (Bracketed b) = Bracketed (transform . b)
+
+
 {-| Apply to the underlying stream a transformation that might not preserve
     the return value, like 'S.take'.
 

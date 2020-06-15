@@ -34,6 +34,7 @@ module Streaming.Bracketed (
     , with_
      -- * Transforming bracketed streams
     , over
+    , over'
     , over_
     , for 
      -- * Reading text files
